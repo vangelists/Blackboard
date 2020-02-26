@@ -170,7 +170,8 @@ static void prepareBlackboard(Blackboard* blackboard) {
                                        CallEventHandlerOnce::Yes));
 }
 
-static void runBlackboardRegistryTest(BlackboardRegistry* blackboardRegistry, std::size_t threadId) {
+static void runBlackboardRegistryTest(BlackboardRegistry* blackboardRegistry,
+                                      [[maybe_unused]] std::size_t threadId) {
     std::size_t blackboardId;
 
     const auto thisThreadId = std::this_thread::get_id();
