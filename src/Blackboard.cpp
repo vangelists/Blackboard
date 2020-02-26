@@ -57,10 +57,14 @@ void Blackboard::DecrementEventsUnderProcessingSemaphore() {
 
 EventHandlerUniqueId Blackboard::CreateEvent(EventID eventId, const EventHandler& eventHandler,
                                              CallEventHandlerOnce callOnce) {
-    const auto& keyValuePair = events.emplace(std::piecewise_construct,
-                                              std::forward_as_tuple(eventId),
-                                              std::forward_as_tuple());
-    auto& eventContainer = keyValuePair.first->second;
+    const auto& [iterator, success] = events.emplace(std::piecewise_construct,
+                                                     std::forward_as_tuple(eventId),
+                                                     std::forward_as_tuple());
+    if (!success) {
+      throw std::bad_alloc();
+    }
+
+    auto& [event, eventContainer] = *iterator;
     eventContainer.eventHandlerList = std::make_unique<EventHandlerList>();
     eventContainer.eventHandlerList->push_back(EventHandlerContainer(eventHandler, callOnce));
 
@@ -81,12 +85,10 @@ bool Blackboard::TryToRemoveEvent(Events::iterator& eventPair) {
 }
 
 void Blackboard::CheckIfEventNeedsRemoval(Events::iterator& eventPair) {
-    auto& eventContainer = eventPair->second;
+    auto& [_, eventContainer] = *eventPair;
     if (eventContainer.deleted) {
         TryToRemoveEvent(eventPair);
-        return;
-    }
-    if (eventContainer.eventHandlerList->empty()) {
+    } else if (eventContainer.eventHandlerList->empty()) {
         eventContainer.deleted = true;
         TryToRemoveEvent(eventPair);
     }
@@ -114,7 +116,7 @@ EventHandlerUniqueId Blackboard::AddEventHandler(EventID eventId, const EventHan
     assert(GetThisThreadId() == owner);
 
     if (auto eventPair = events.find(eventId); eventPair != events.end()) {
-        auto& eventContainer = eventPair->second;
+        auto& [_, eventContainer] = *eventPair;
         if (eventContainer.deleted) {
             if (TryToRemoveEvent(eventPair)) {
                 return CreateEvent(eventId, eventHandler, callOnce);
@@ -142,7 +144,7 @@ void Blackboard::RemoveEventHandler(EventID eventId, EventHandlerUniqueId eventH
         return;
     }
 
-    auto& eventContainer = eventPair->second;
+    auto& [_, eventContainer] = *eventPair;
     if (eventContainer.deleted) {
         TryToRemoveEvent(eventPair);
         return;
@@ -172,7 +174,7 @@ void Blackboard::ClearEventHandlers(EventID eventId) {
         return;
     }
 
-    auto& eventContainer = eventPair->second;
+    auto& [_, eventContainer] = *eventPair;
     if (eventContainer.deleted) {
         TryToRemoveEvent(eventPair);
         return;
@@ -183,7 +185,7 @@ void Blackboard::ClearEventHandlers(EventID eventId) {
 }
 
 void Blackboard::ProcessEvent(Events::iterator eventPair, const Object& eventContent) {
-    auto& eventContainer = eventPair->second;
+    auto& [event, eventContainer] = *eventPair;
     eventContainer.threadIdPostedBy = GetThisThreadId();
 
     const auto& currentEventHandlerList = eventContainer.eventHandlerList;
@@ -194,7 +196,7 @@ void Blackboard::ProcessEvent(Events::iterator eventPair, const Object& eventCon
         auto currentEventHandlerFunction = currentEventHandler->eventHandler; // intentionally copied
 
         try {
-            if (!currentEventHandlerFunction(eventPair->first, eventContent)) {
+            if (!currentEventHandlerFunction(event, eventContent)) {
                 CheckIfHandlerNeedsRemoval(*currentEventHandlerList, &currentEventHandler);
                 break;
             }
@@ -226,7 +228,7 @@ void Blackboard::PostEventInternal(EventID eventId, const Object& eventContent, 
         return;
     }
 
-    auto& eventContainer = eventPair->second;
+    auto& [_, eventContainer] = *eventPair;
     if (eventContainer.deleted) {
         DecrementEventsUnderProcessingSemaphore();
         if (requiresHandler) {
@@ -242,7 +244,8 @@ void Blackboard::PostEventInternal(EventID eventId, const Object& eventContent, 
         ProcessEvent(eventPair, eventContent);
     } else {
         std::unique_lock<std::mutex> eventMutexLock(eventContainer.eventMutex);
-        eventContainer.eventCondition.wait(eventMutexLock, [&eventContainer]{
+        eventContainer.eventCondition.wait(eventMutexLock,
+                                           [&eventContainer = eventContainer] {
             return eventContainer.threadIdPostedBy == std::thread::id();
         });
         ProcessEvent(eventPair, eventContent);
@@ -295,7 +298,7 @@ void Blackboard::ProcessQueuedEvents() {
 
     if (GetThisThreadId() != threadIdProcessingQueuedEvents) {
         std::unique_lock<std::mutex> processingQueuedEventsMutexLock(processingQueuedEventsMutex);
-        processingQueuedEventsCondition.wait(processingQueuedEventsMutexLock, [this]{
+        processingQueuedEventsCondition.wait(processingQueuedEventsMutexLock, [this] {
             return threadIdProcessingQueuedEvents == std::thread::id();
         });
 

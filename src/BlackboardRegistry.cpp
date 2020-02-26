@@ -39,22 +39,27 @@ BlackboardRegistry &GetBlackboardRegistry() {
 
 Blackboard* BlackboardRegistry::GetBlackboard(BlackboardId blackboardId) {
     const std::lock_guard<std::mutex> lock(blackboardsMutex);
-    const auto& keyValuePair = blackboards.find(blackboardId);
-    return keyValuePair != blackboards.end() ? &*keyValuePair->second : nullptr;
+    const auto& iterator = blackboards.find(blackboardId);
+    return iterator != blackboards.end() ? &*iterator->second : nullptr;
 }
 
 Blackboard& BlackboardRegistry::CreateBlackboard(BlackboardId blackboardId) {
     const std::lock_guard<std::mutex> lock(blackboardsMutex);
 
-    if (const auto& keyValuePair = blackboards.find(blackboardId); keyValuePair != blackboards.end()) {
-        Blackboard& blackboard = *keyValuePair->second;
-        return blackboard;
+    if (const auto& iterator = blackboards.find(blackboardId); iterator != blackboards.end()) {
+        const auto& [_, blackboard] = *iterator;
+        return *blackboard;
     }
 
-    const auto& keyValuePair = blackboards.emplace(std::piecewise_construct,
-                                                   std::forward_as_tuple(blackboardId),
-                                                   std::forward_as_tuple(std::make_unique<Blackboard>()));
-    return *keyValuePair.first->second;
+    const auto& [iterator, success] =
+            blackboards.emplace(std::piecewise_construct,
+                                std::forward_as_tuple(blackboardId),
+                                std::forward_as_tuple(std::make_unique<Blackboard>()));
+    if (!success) {
+      throw std::bad_alloc();
+    }
+
+    return *iterator->second;
 }
 
 void BlackboardRegistry::DestroyBlackboard(BlackboardId blackboardId) {

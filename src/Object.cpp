@@ -53,16 +53,16 @@ std::optional<Value> Object::operator[](const Value& key) const {
 //--------------------------------------------------------------------------------------------------
 
 std::optional<Value> Object::GetValue(const Value& key) const {
-    if (auto keyValuePair = values->find(key); keyValuePair != values->end()) {
-        return keyValuePair->second;
+    if (auto iterator = values->find(key); iterator != values->end()) {
+        return iterator->second;
     } else {
         return {};
     }
 }
 
 Object& Object::AddValue(const Value& key, const Value& value) {
-    if (auto keyValuePair = values->find(key); keyValuePair != values->end()) {
-        keyValuePair->second = value;
+    if (auto iterator = values->find(key); iterator != values->end()) {
+        iterator->second = value;
     } else {
         values->emplace(key, value);
     }
@@ -70,7 +70,7 @@ Object& Object::AddValue(const Value& key, const Value& value) {
 }
 
 Object& Object::RemoveValue(const Value& key) {
-    if (auto keyValuePair = values->find(key); keyValuePair != values->end()) {
+    if (auto iterator = values->find(key); iterator != values->end()) {
         values->erase(key);
     }
     return *this;

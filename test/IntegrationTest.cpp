@@ -84,7 +84,10 @@ static std::string threadIdToString(const std::thread::id threadId) {
 static BlackboardsInfo& getBlackboardsInfo(const std::thread::id threadId) {
     std::lock_guard<std::mutex> lock(threadInfoMutex);
     if (const auto& thisThreadInfo = threadInfo.find(threadId); thisThreadInfo == threadInfo.end()) {
-        threadInfo.emplace(threadId, BlackboardsInfo());
+        const auto& [_, success] = threadInfo.emplace(threadId, BlackboardsInfo());
+        if (!success) {
+          throw std::bad_alloc();
+        }
     }
     return threadInfo[threadId];
 }
