@@ -61,7 +61,7 @@ EventHandlerUniqueId Blackboard::CreateEvent(EventID eventId, const EventHandler
                                                      std::forward_as_tuple(eventId),
                                                      std::forward_as_tuple());
     if (!success) {
-      throw std::bad_alloc();
+        throw std::bad_alloc();
     }
 
     auto& [event, eventContainer] = *iterator;

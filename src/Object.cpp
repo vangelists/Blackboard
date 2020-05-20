@@ -28,17 +28,15 @@ Object& Object::operator=(Object&& from) noexcept {
     if (this != &from) {
         this->~Object();
         return *new (this) Object(from);
-    } else {
-        return *this;
     }
+    return *this;
 }
 
 bool Object::operator==(const Object& other) const {
     if (this == &other) {
         return true;
-    } else {
-        return *values == *other.values;
     }
+    return *values == *other.values;
 }
 
 bool Object::operator!=(const Object& other) const {
@@ -54,9 +52,8 @@ std::optional<Value> Object::operator[](const Value& key) const {
 std::optional<Value> Object::GetValue(const Value& key) const {
     if (auto iterator = values->find(key); iterator != values->end()) {
         return iterator->second;
-    } else {
-        return {};
     }
+    return {};
 }
 
 Object& Object::AddValue(const Value& key, const Value& value) {
