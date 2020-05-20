@@ -37,8 +37,7 @@ bool Object::operator==(const Object& other) const {
     if (this == &other) {
         return true;
     } else {
-        return values->size() == other.values->size() &&
-               std::equal(values->begin(), values->end(), other.values->begin());
+        return *values == *other.values;
     }
 }
 
